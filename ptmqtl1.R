@@ -81,24 +81,41 @@ dat[order(dat[,1],decreasing=FALSE),] #ascending order by patient number
 #group by patient and SNP-PTM pairs, sum up peptide, sum up PTM exist, determine if 
 # SNP exist is 0(all are 0) or 1(half 0 half 1) or 2(all 1). 
 
-pdat <- matrix(c(ptm_snp, nptm_snp, ptm_nsnp, nptm_nsnp), nrow = patient_count*id_count*2, ncol = 4)
-colnames(pdat) <- c("SNP_PTM id", "Patient #", "w/ SNP", "w/o SNP")
+pdat <- matrix(0, nrow = patient_count*id_count*2, ncol = 4)
+colnames(pdat) <- c("w/ SNP", "w/o SNP", "SNP_PTM id", "Patient #")
+rownames(pdat) <- rep(c("w/ PTM", "w/o PTM"), patient_count * id_count)
 
 row_iter <- 1
 for (ic in 1:id_count) {
   for (pc in 1:patient_count) {
-    pdat[row_iter, 3] <- y1[ic, pc]
-    pdat[row_iter + 1, 3] <- x[ic, pc] - y1[ic, pc]
-    pdat[row_iter, 4] <- y2[ic, pc]
-    pdat[row_iter + 1, 4] <- n[ic, pc] - x[ic, pc] - y2[ic, pc]
-    pdat[row_iter:(row_iter + 1), 1] <- ic
-    pdat[row_iter:(row_iter + 1), 2] <- pc
+    pdat[row_iter, 1] <- y1[ic, pc]
+    pdat[row_iter + 1, 1] <- x[ic, pc] - y1[ic, pc]
+    pdat[row_iter, 2] <- y2[ic, pc]
+    pdat[row_iter + 1, 2] <- n[ic, pc] - x[ic, pc] - y2[ic, pc]
+    pdat[row_iter:(row_iter + 1), 3] <- ic
+    pdat[row_iter:(row_iter + 1), 4] <- pc
     row_iter <- row_iter + 2
   }
 }
 pdat
 
-# chidat <- 
+
+chidat <- matrix(0, nrow = id_count*2, ncol = 3)
+colnames(chidat) <- c("w/ SNP", "w/o SNP", "SNP_PTM id")
+rownames(chidat) <- rep(c("w/ PTM", "w/o PTM"), id_count)
+
+row_iter <- 1
+for (ic in 1:id_count) {
+  chidat[row_iter, 1] <- sum(y1[ic,])
+  chidat[row_iter + 1, 1] <- sum(x[ic,]) - sum(y1[ic,])
+  chidat[row_iter, 2] <- sum(y2[ic,])
+  chidat[row_iter + 1, 2] <- sum(n[ic,]) - sum(x[ic,]) - sum(y2[ic,])
+  chidat[row_iter:(row_iter + 1), 3] <- ic
+  row_iter <- row_iter + 2
+}
+chidat
+
+
 # chisq.test(pdat)$p.value # do this for every SNP-PTM pair, then graph would be nice
 # barplot(H,xlab,ylab,main, names.arg,col)
 
