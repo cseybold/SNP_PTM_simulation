@@ -10,8 +10,8 @@ z <- 0.2 # effect of SNP on PTM
 z <- min(z, 1-q)
 z <- max(z, -q) # ensure 0<q+z<1
 lambda_ <- 5
-patient_count <- 4
-id_count <- 3
+patient_count <- 6
+id_count <- 10
 
 
 n <- matrix(0, nrow = id_count, ncol = patient_count)
@@ -83,6 +83,8 @@ pdat <- matrix(0, nrow = patient_count*id_count*2, ncol = 4)
 colnames(pdat) <- c("w/ SNP", "w/o SNP", "SNP_PTM id", "Patient #")
 rownames(pdat) <- rep(c("w/ PTM", "w/o PTM"), patient_count * id_count)
 
+snppat_label <- list()
+label_iter <- 1
 row_iter <- 1
 for (ic in 1:id_count) {
   for (pc in 1:patient_count) {
@@ -92,7 +94,9 @@ for (ic in 1:id_count) {
     pdat[row_iter + 1, 2] <- n[ic, pc] - x[ic, pc] - y2[ic, pc]
     pdat[row_iter:(row_iter + 1), 3] <- ic
     pdat[row_iter:(row_iter + 1), 4] <- pc
+    snppat_label[[label_iter]] <- c(ic, pc)
     row_iter <- row_iter + 2
+    label_iter <- label_iter + 1
   }
 }
 pdat
@@ -148,7 +152,7 @@ for (rownum in seq(1, 2 * patient_count * id_count, 2)) {
 
 chipvals[is.nan(chipvals)] <- 1
 chipvals
-barplot(chipvals[, 1], xlab = "(SNP-PTM id, Patient #)", ylab = "p-value", main = "Significance of SNP-PTM associations", names.arg = seq(1:12))
+barplot(chipvals[, 1], xlab = "(SNP-PTM id, Patient #)", ylab = "p-value", main = "Significance of SNP-PTM associations", names.arg = snppat_label)
 
 
 # x_new <- dat[, 4]
