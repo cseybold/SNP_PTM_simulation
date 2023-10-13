@@ -10,8 +10,8 @@ z <- 0.2 # effect of SNP on PTM
 z <- min(z, 1-q)
 z <- max(z, -q) # ensure 0<q+z<1
 lambda_ <- 5
-patient_count <- 5
-id_count <- 4
+patient_count <- 4
+id_count <- 3
 
 
 n <- matrix(0, nrow = id_count, ncol = patient_count)
@@ -70,10 +70,8 @@ for (id_iter in 1:id_count) {
   pos <- 1
   id_iter <- id_iter + 1
 }
-sum(x)
-sum(dat[,4])
 dat #ascending order by SNP-PTM id
-dat[order(dat[,1],decreasing=FALSE),] #ascending order by patient number
+#dat[order(dat[,1],decreasing=FALSE),] #ascending order by patient number
 #}
 #debug(db)
 #db()
@@ -100,29 +98,62 @@ for (ic in 1:id_count) {
 pdat
 
 
-chidat <- matrix(0, nrow = id_count*2, ncol = 3)
-colnames(chidat) <- c("w/ SNP", "w/o SNP", "SNP_PTM id")
-rownames(chidat) <- rep(c("w/ PTM", "w/o PTM"), id_count)
+# snpchidat <- matrix(0, nrow = id_count*2, ncol = 3)
+# colnames(snpchidat) <- c("w/ SNP", "w/o SNP", "SNP_PTM id")
+# rownames(snpchidat) <- rep(c("w/ PTM", "w/o PTM"), id_count)
+# 
+# row_iter <- 1
+# for (ic in 1:id_count) {
+#   snpchidat[row_iter, 1] <- sum(y1[ic,])
+#   snpchidat[row_iter + 1, 1] <- sum(x[ic,]) - sum(y1[ic,])
+#   snpchidat[row_iter, 2] <- sum(y2[ic,])
+#   snpchidat[row_iter + 1, 2] <- sum(n[ic,]) - sum(x[ic,]) - sum(y2[ic,])
+#   snpchidat[row_iter:(row_iter + 1), 3] <- ic
+#   row_iter <- row_iter + 2
+# }
+# snpchidat
+# 
+# 
+# patchidat <- matrix(0, nrow = patient_count*2, ncol = 3)
+# colnames(patchidat) <- c("w/ SNP", "w/o SNP", "Patient #")
+# rownames(patchidat) <- rep(c("w/ PTM", "w/o PTM"), patient_count)
+# 
+# row_iter <- 1
+# for (pc in 1:patient_count) {
+#   patchidat[row_iter, 1] <- sum(y1[, pc])
+#   patchidat[row_iter + 1, 1] <- sum(x[, pc]) - sum(y1[, pc])
+#   patchidat[row_iter, 2] <- sum(y2[, pc])
+#   patchidat[row_iter + 1, 2] <- sum(n[, pc]) - sum(x[, pc]) - sum(y2[, pc])
+#   patchidat[row_iter:(row_iter + 1), 3] <- pc
+#   row_iter <- row_iter + 2
+# }
+# patchidat
 
-row_iter <- 1
-for (ic in 1:id_count) {
-  chidat[row_iter, 1] <- sum(y1[ic,])
-  chidat[row_iter + 1, 1] <- sum(x[ic,]) - sum(y1[ic,])
-  chidat[row_iter, 2] <- sum(y2[ic,])
-  chidat[row_iter + 1, 2] <- sum(n[ic,]) - sum(x[ic,]) - sum(y2[ic,])
-  chidat[row_iter:(row_iter + 1), 3] <- ic
-  row_iter <- row_iter + 2
+
+chipvals <- matrix(0, nrow = patient_count * id_count, ncol = 3)
+colnames(chipvals) <- c("p-value", "SNP_PTM id", "Patient #")
+
+row_it <- 1
+for (rownum in seq(1, 2 * patient_count * id_count, 2)) {
+  if (any(pdat[rownum:(rownum + 1), 1:2]) == 0) {
+    chipvals[row_it, 1] <- 1 #best way to handle?
+  }
+  else {
+    chipvals[row_it, 1] <- chisq.test(pdat[rownum:(rownum + 1), 1:2])$p.value
+  }
+  chipvals[row_it, 2] <- (row_it - 1) %/% patient_count + 1
+  chipvals[row_it, 3] <- rep(seq(1, patient_count), id_count)[row_it]
+  row_it <- row_it + 1
 }
-chidat
+
+chipvals[is.nan(chipvals)] <- 1
+chipvals
+barplot(chipvals[, 1], xlab = "(SNP-PTM id, Patient #)", ylab = "p-value", main = "Significance of SNP-PTM associations", names.arg = seq(1:12))
 
 
-# chisq.test(pdat)$p.value # do this for every SNP-PTM pair, then graph would be nice
-# barplot(H,xlab,ylab,main, names.arg,col)
-
-
-x_new <- dat[, 4]
-y_new <- dat[, 5]
-b <- dat[, 6]
-
-neg_binom <- glm.nb(y_new ~ x_new * b, data = as.data.frame(dat)) #we don't know b
-summary(neg_binom)
+# x_new <- dat[, 4]
+# y_new <- dat[, 5]
+# b <- dat[, 6]
+# 
+# neg_binom <- glm.nb(y_new ~ x_new * b, data = as.data.frame(dat)) #we don't know b
+# summary(neg_binom)
