@@ -2,6 +2,7 @@ options(max.print=1000000)
 library(purrr)
 library(MASS)
 set.seed(24601)
+library(tidyverse)
 
 
 p <- 0.5 # prob of SNP
@@ -9,44 +10,90 @@ q <- 0.3 # prob of getting PTM w/o SNP
 z <- 0.2 # effect of SNP on PTM
 z <- min(z, 1-q)
 z <- max(z, -q) # ensure 0<q+z<1
-lambda_ <- 5
-patient_count <- 6
-id_count <- 10
+lambda_ <- 5 
+patient_count <- 20
+id_count <- 100
 
 
-n <- matrix(0, nrow = id_count, ncol = patient_count)
-x <- matrix(0, nrow = id_count, ncol = patient_count)
-y1 <- matrix(0, nrow = id_count, ncol = patient_count)
-y2 <- matrix(0, nrow = id_count, ncol = patient_count)
-y <- matrix(0, nrow = id_count, ncol = patient_count)
+# n <- matrix(0, nrow = id_count, ncol = patient_count)
+# x <- matrix(0, nrow = id_count, ncol = patient_count)
+# y1 <- matrix(0, nrow = id_count, ncol = patient_count)
+# y2 <- matrix(0, nrow = id_count, ncol = patient_count)
+# y <- matrix(0, nrow = id_count, ncol = patient_count)
+# 
+# for (id_it in 1:id_count) {
+#   n[id_it,] <- rpois(patient_count, lambda = lambda_) # getting count of peptide
+#   x[id_it,] <- rbinom(patient_count, n[id_it,], p) # getting SNP count
+#   y1[id_it,] <- rbinom(patient_count, x[id_it,], q+z) # PTM w/ SNP
+#   y2[id_it,] <- rbinom(patient_count, n[id_it,]-x[id_it,], q) # PTM w/o SNP
+# }
+# y <- y1 + y2
 
-for (id_it in 1:id_count) {
-  n[id_it,] <- rpois(patient_count, lambda = lambda_) # getting count of peptide
-  x[id_it,] <- rbinom(patient_count, n[id_it,], p) # getting SNP count
-  y1[id_it,] <- rbinom(patient_count, x[id_it,], q+z) # PTM w/ SNP
-  y2[id_it,] <- rbinom(patient_count, n[id_it,]-x[id_it,], q) # PTM w/o SNP
-}
-y <- y1 + y2
+n = rpois(patient_count*id_count, lambda = lambda_)
+x = rbinom(patient_count*id_count, n, p)
+y1 = rbinom(patient_count*id_count, x, q+z)
+y2 = rbinom(patient_count*id_count, n-x, q)
 
-n
-x
-y1
-y2
-y
+# n = matrix(n, nrow = id_count, ncol=patient_count)
+# x = matrix(x, nrow = id_count, ncol=patient_count)
+# y1 = matrix(y1, nrow = id_count, ncol=patient_count)
+# y2 = matrix(y2, nrow = id_count, ncol=patient_count)
+
+# n[1:5, 1:5]
+# x[1:5, 1:5]
+# y1[1:5, 1:5]
+# y2[1:5, 1:5]
+# 
+# n
+# x
+# y1
+# y2
+# y
+
+# Convert the data to matrix form, this is the original form
+dat = data.frame(patient=rep(1:patient_count,id_count), 
+                 snp_ptm_id=rep(1:id_count,each=patient_count), peptide=n,
+                 snp=x,non_snp=n-x,snp_ptm=y1,non_snp_ptm=y2,effect_size=z)
+dat = as.tibble(dat)
+
+# Convert to a coarser form
+dat_coarse = dat
+dat_coarse$snp_type = dat_coarse$snp/dat_coarse$peptide
+dat_coarse$snp_type[dat_coarse$snp_type<0.33] = 0
+dat_coarse$snp_type[dat_coarse$snp_type>0.66] = 1
+dat_coarse$snp_type[dat_coarse$snp_type!=0 && dat_coarse$snp_type!=0] = 0.5
+dat_coarse$ptm_count = dat_coarse$snp_ptm + dat_coarse$non_snp_ptm
+dat_coarse = dat_coarse %>% select(patient, snp_ptm_id, peptide, snp_type,
+                                   snp_ptm)
+##################################################################
+# Task 1, compare the performance using dat and dat_coarse
+# Task 2, make the parameters sampled from distribution instead of using a fixed number
+# for probability of getting a snp, we should make it a bit more realistic
+# We first sample p from a defined distribution (prefer to have most of them as 
+# small values). then for each patient, we do a binomial with sample size of 2
+# mimicing the behavior of two chromosome copies. Note, p is associated with
+# snp_ptm_id, so for different patient with same snp_ptm_id, p should be the same.
+# Similarly, q should be associated with snp_ptm_id as well. no preference on distribution
+# similarly, z should be associated with snp_ptm_id. make sure 0<=p+z<=1
+# lambda_ associated with snp_ptm_id.
+# compare the performance under this setting.
 
 
-dat <- matrix(0, nrow = sum(n), ncol = 6)
-colnames(dat) <- c("Patient", "SNP-PTM id", "Peptide", "SNP Exist?", "PTM Exist?", "Effect Size")
+
+
 
 pos <- 1 #starting position iterator for each patient
 id_pos <- 1 #starting SNP-PTM id position
 
-for (tr in 1:id_count) {
-  print(sum(n[tr,]))
-}
+# for (tr in 1:id_count) {
+#   print(sum(n[tr,]))
+# }
+
+
 #db <- function() {
 for (id_iter in 1:id_count) {
   dat[id_pos:(id_pos + sum(n[id_iter,]) - 1), 2] <- id_iter
+  dat$snp_ptm_id[id_pos:(id_pos + sum(n[id_iter,]) - 1)] <- id_iter
   dat[id_pos:(id_pos + sum(n[id_iter,]) - 1), 6] <- sample(c(-0.3, 0, 0.3), size=1, prob=c(0.1, 0.8, 0.1))
   id_pos <- id_pos + sum(n[id_iter,])
   for (i in 1:patient_count) {
