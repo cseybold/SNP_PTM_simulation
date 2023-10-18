@@ -8,7 +8,7 @@ library(tidyverse)
 patient_count <- 20
 id_count <- 100
 
-lambda_ <- 5 
+lambda_ <- rep(sample(2:8, size = id_count, replace = TRUE), patient_count) 
 p <- rep(rnorm(id_count, 0.4, 0.2), patient_count) # prob of SNP
 p <- pmax(pmin(1, p), 0)
 q <- rep(rnorm(id_count, 0.3, 0.15), patient_count) # prob of getting PTM w/o SNP
