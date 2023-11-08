@@ -8,18 +8,27 @@ patient_count <- 50
 id_count <- 100
 
 lambda_ <- rep(sample(2:8, size = id_count, replace = TRUE), patient_count)
-p <- rep(rnorm(id_count, 0.4, 0.2), patient_count) # prob of SNP
+
+#probability of SNP
+p <- rep(rnorm(id_count, 0.4, 0.2), patient_count)
 p <- pmax(pmin(1, p), 0)
+
+#effect size (q+z = prob of PTM with SNP)
 z <- numeric(patient_count*id_count)
 for (i in seq_len(patient_count)) {
   z[((i-1)*id_count + 1):(i*id_count)] <- rep(sample(c(-0.2, 0, 0.2),
-    size = id_count, replace = TRUE, prob = c(0.15, 0.7, 0.15)), each = id_count) # prob of getting PTM w/o SNP
+    size = id_count, replace = TRUE, prob = c(0.15, 0.7, 0.15)), each = id_count)
 }
+
+#probability of PTM without SNP
 q <- rep(rnorm(id_count, 0.3, 0.15), patient_count) # prob of getting PTM w/o SNP
 q <- pmax(pmin(1, q), 0.2)
 
+#peptide count
 n = rpois(patient_count*id_count, lambda = lambda_)
 n = replace(n, n==0, 1)
+
+#peptide with SNP count
 x = numeric(patient_count*id_count)
 for (sampcnt in 1:(patient_count*id_count)) {
   x[sampcnt] = min(n[sampcnt], sample(c(0, 0.5, 1), size = 1, replace = TRUE,
@@ -27,14 +36,18 @@ for (sampcnt in 1:(patient_count*id_count)) {
 }
 x[x == 1] <- n[x == 1]
 x[x == 0.5] <- rbinom(length(x[x == 0.5]), n[x == 0.5], 0.5)
-y1 = rbinom(patient_count*id_count, x, q+z)
-y2 = rbinom(patient_count*id_count, n-x, q)
 
+#peptide with PTM count
+y1 = rbinom(patient_count*id_count, x, q+z) #with SNP
+y2 = rbinom(patient_count*id_count, n-x, q) #without SNP
+
+#x expanded as series of 1s (snp) and 0s (no snp) for new data table
 snp_var <- numeric(0)
 for (i in 1:(patient_count*id_count)) {
   snp_var <- c(snp_var, rep(1, x[i]), rep(0, n[i] - x[i]))
 }
 
+#expanded ptm count (y1 + y2) as 1s (ptm) and 0s (no ptm) for new data table
 ptm_var <- numeric(0)
 for (i in 1:(patient_count*id_count)) {
   ptm_var <- c(ptm_var, rep(1, y1[i] + y2[i]), rep(0, n[i] - (y1[i] + y2[i])))
@@ -48,12 +61,12 @@ dat = data.frame(patient=rep(1:patient_count,id_count),
 dat = as_tibble(dat)
 print(dat, n = 100)
 
+#original form expanded out by number of peptides
 new_dat = data.frame(patient=rep(rep(1:patient_count, id_count), n), 
                  snp_ptm_id=rep(rep(1:id_count,each=patient_count), n),
                  snp=snp_var, ptm=ptm_var,effect_size=rep(z, n))
 new_dat = as_tibble(new_dat)
 print(new_dat, n = 100)
-
 
 # Convert to a coarser form
 dat_coarse = dat
@@ -75,6 +88,7 @@ for (idc in 1:id_count) {
     ~ snp_type[(1+(patient_count*(idc-1))):(patient_count*idc)], data = dat_coarse)
   coarse_lm_pval[idc] <- summary(coarse_lm)$coefficients[2,4]
 }
+
 sig_col <- ifelse(coarse_lm_pval < 0.05, "red", "black")
 plot(seq_len(id_count), coarse_lm_pval, main = "Significance of snp-ptm correlation (new)",
      xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col)
