@@ -81,40 +81,45 @@ dat_coarse$snp_ptm <- dat_coarse$snp_ptm / dat_coarse$peptide
 
 print(dat_coarse, n = 100)
 
-#coarse data linear regression plot
+
+#coarse data linear regression model
+coarse_lm_b <- numeric(id_count)
 coarse_lm_pval <- numeric(id_count)
+
 for (idc in 1:id_count) {
   coarse_lm <- lm(snp_ptm[(1+(patient_count*(idc-1))):(patient_count*idc)]
     ~ snp_type[(1+(patient_count*(idc-1))):(patient_count*idc)], data = dat_coarse)
   coarse_lm_pval[idc] <- summary(coarse_lm)$coefficients[2,4]
+  coarse_lm_b[idc] <- coef(coarse_lm)[2]
 }
 
+#coarse data snp-ptm ID vs p-value plot
 sig_col <- ifelse(coarse_lm_pval < 0.05, "red", "black")
 plot(seq_len(id_count), coarse_lm_pval, main = "Significance of snp-ptm correlation (new)",
      xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col)
 abline(h = 0.05, col = "red4")
 
+#coarse data plots (snp-type vs normalized ptm count and id vs bvalue)
+plot(dat_coarse$snp_type, dat_coarse$snp_ptm, main = "normalized snp-ptm count for each snp type (coarse)")
+plot(1:100, coarse_lm_b, main = "effect size of each snp-ptm id (coarse data)", xlab = "snp-ptm_id", ylab = "B-value")
 
-#old data linear regression plot
+
+#old data linear regression model
+old_lm_b <- numeric(id_count)
 old_lm_pval <- numeric(id_count)
+
 for (idc in 1:id_count) {
   old_lm <- lm(ptm[sum(n[0:(patient_count*(idc-1))]):sum(n[0:(patient_count*idc)])]
     ~ snp[sum(n[0:(patient_count*(idc-1))]):sum(n[0:(patient_count*idc)])], data = new_dat)
   old_lm_pval[idc] <- summary(old_lm)$coefficients[2,4]
+  old_lm_b[idc] <- coef(old_lm)[2]
 }
 
+#old data snp-ptm ID vs p-value plot
 sig_col_2 <- ifelse(old_lm_pval < 0.05, "blue", "black")
 plot(seq_len(id_count), old_lm_pval, main = "Significance of snp-ptm correlation (old)",
      xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col_2)
 abline(h = 0.05, col = "blue4")
 
-
-#coarse data analysis (id vs bvalue and snp-type vs normalized ptm count)
-coarse_lm_b <- numeric(id_count)
-for (idc in 1:id_count) {
-  coarse_lm <- lm(snp_ptm[(1+(patient_count*(idc-1))):(patient_count*idc)]
-                  ~ snp_type[(1+(patient_count*(idc-1))):(patient_count*idc)], data = dat_coarse)
-  coarse_lm_b[idc] <- coef(coarse_lm)[2]
-}
-plot(dat_coarse$snp_type, dat_coarse$snp_ptm)
-plot(1:100, coarse_lm_b, xlab = "snp-ptm_id", ylab = "B-value")
+#old data plots (id vs bvalue)
+plot(1:100, old_lm_b, main = "effect size of each snp-ptm id (old data)", xlab = "snp-ptm_id", ylab = "B-value")
