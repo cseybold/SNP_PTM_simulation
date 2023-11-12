@@ -70,10 +70,7 @@ print(new_dat, n = 100)
 
 # Convert to a coarser form
 dat_coarse = dat
-dat_coarse$snp_type = dat_coarse$snp/dat_coarse$peptide
-dat_coarse$snp_type[dat_coarse$snp_type<0.33] = 0
-dat_coarse$snp_type[dat_coarse$snp_type>0.66] = 1
-dat_coarse$snp_type[(dat_coarse$snp_type != 0) & (dat_coarse$snp_type != 1)] = 0.5
+dat_coarse$snp_type = cut(dat_coarse$snp/dat_coarse$peptide, breaks = c(-Inf, 0.33, 0.66, Inf), labels = c(0, 0.5, 1), include.lowest = TRUE)
 dat_coarse$effect_size = dat_coarse$effect_size
 dat_coarse = dat_coarse %>% select(patient, snp_ptm_id, peptide, snp_type, snp_ptm, effect_size)
 
@@ -95,7 +92,7 @@ for (idc in 1:id_count) {
 
 #coarse data snp-ptm ID vs p-value plot
 sig_col <- ifelse(coarse_lm_pval < 0.05, "red", "black")
-plot(seq_len(id_count), coarse_lm_pval, main = "Significance of snp-ptm correlation (new)",
+plot(seq_len(id_count), coarse_lm_pval, main = "Significance of snp-ptm correlation (coarse)",
      xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col)
 abline(h = 0.05, col = "red4")
 
