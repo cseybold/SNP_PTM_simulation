@@ -1,0 +1,223 @@
+---
+title: "snp_ptm_lab"
+author: "Christopher Seybold"
+date: "2023-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r defs}
+
+library(purrr)
+library(MASS)
+set.seed(24601)
+library(tidyverse)
+
+patient_count <- 50
+snp_ptm_id_count <- 100
+
+```
+
+
+```{r snp_prob}
+#p
+snp_prob <- rep(rnorm(snp_ptm_id_count, 0.4, 0.2), patient_count)
+snp_prob <- pmax(pmin(1, snp_prob), 0)
+hist(snp_prob)
+
+```
+
+```{r effect_size}
+#z
+effect_size <- sample(c(-0.2, 0, 0.2), size = snp_ptm_count, replace = TRUE, prob = c(0.15, 0.7, 0.15))
+hist(effect_size)
+
+```
+
+```{r ptm_wo_snp_prob}
+#probability of PTM without SNP (q)
+ptm_wo_snp_prob <- rep(rnorm(snp_ptm_id_count, 0.3, 0.15), patient_count)
+ptm_wo_snp_prob <- pmax(pmin(1, ptm_wo_snp_prob), 0.2)
+hist(ptm_wo_snp_prob)
+
+```
+
+```{r lambda}
+#peptide count parameter
+lambda_ <- rep(sample(2:8, size = snp_ptm_id_count, replace = TRUE), patient_count)
+hist(lambda_)
+
+```
+
+
+```{r pep_count}
+#n
+pep_count = rpois(patient_count*snp_ptm_id_count, lambda = lambda_)
+pep_count = replace(pep_count, pep_count==0, 1)
+hist(pep_count)
+
+```
+
+```{r pep_w_snp_count}
+#x
+pep_w_snp_count <- numeric(patient_count * snp_ptm_id_count)
+for (i in 1:(patient_count*snp_ptm_id_count)) {
+  pep_w_snp_count[i] = min(pep_count[i], sample(c(0, 0.5, 1), size = 1, replace = TRUE, prob = c((1 - snp_prob[i])^2, snp_prob[i]^2, max(1 - ((1 - snp_prob[i])^2 + snp_prob[i]^2), 0))))
+}
+pep_w_snp_count[pep_w_snp_count == 1] <- pep_count[pep_w_snp_count == 1]
+pep_w_snp_count[pep_w_snp_count == 0.5] <- rbinom(length(pep_w_snp_count[pep_w_snp_count == 0.5]), pep_count[pep_w_snp_count == 0.5], 0.5)
+
+hist(pep_w_snp_count)
+
+```
+
+
+```{r pep_w_ptm_snp}
+#y1
+pep_w_ptm_snp = rbinom(patient_count * snp_ptm_id_count, pep_w_snp_count, ptm_wo_snp_prob + effect_size)
+hist(pep_w_ptm_snp)
+
+```
+
+```{r pep_w_ptm_nosnp}
+#y2
+pep_w_ptm_nosnp = rbinom(patient_count * snp_ptm_id_count, pep_count - pep_w_snp_count, ptm_wo_snp_prob)
+hist(pep_w_ptm_nosnp)
+
+```
+
+```{r dat}
+
+# Convert the data to matrix form, this is the original form
+dat = data.frame(snp_ptm_id = rep(1:snp_ptm_count, patient_count),
+                 patient = rep(1:patient_count, each = snp_ptm_count), peptide = pep_count,
+                 snp = pep_w_snp_count, non_snp = pep_count - pep_w_snp_count, snp_ptm = pep_w_ptm_snp, non_snp_ptm = pep_w_ptm_nosnp)
+dat <- dat %>% mutate(effect_size = effect_size[snp_ptm_id])
+dat = as_tibble(dat)
+dat
+
+```
+
+```{r pep_w_snp_long}
+
+#x expanded as series of 1s (snp) and 0s (no snp) for new data table
+pep_w_snp_long <- numeric(0)
+for (i in 1:(patient_count*snp_ptm_id_count)) {
+  pep_w_snp_long <- c(pep_w_snp_long, rep(1, pep_w_snp_count[i]), rep(0, pep_count[i] - pep_w_snp_count[i]))
+}
+hist(pep_w_snp_long)
+
+```
+
+```{r pep_w_ptm_long}
+
+#expanded ptm counts for new data table
+pep_w_ptm_long <- numeric(0)
+for (i in 1:(patient_count * snp_ptm_id_count)) {
+  pep_w_ptm_long <- c(pep_w_ptm_long, rep(1, pep_w_ptm_snp[i]), rep(0, pep_w_snp_count[i] - pep_w_ptm_snp[i]), rep(1, pep_w_ptm_nosnp[i]), rep(0, pep_count[i] - (pep_w_snp_count[i] + pep_w_ptm_nosnp[i])))
+}
+hist(pep_w_ptm_long)
+
+```
+
+```{r dat_long}
+
+#original form expanded out by number of peptides
+dat_long <- data.frame(snp_ptm_id = rep(rep(1:snp_ptm_count, patient_count), pep_count), 
+                     patient = rep(rep(1:patient_count, each = snp_ptm_count), pep_count),
+                     snp = pep_w_snp_long, ptm = pep_w_ptm_long)
+dat_long <- dat_long %>% mutate(effect_size = effect_size[snp_ptm_id])
+dat_long <- as_tibble(dat_long)
+dat_long
+
+```
+
+```{r dat_coarse}
+
+# Convert to a coarser form
+dat_coarse = dat
+dat_coarse$snp_type = cut(dat_coarse$snp/dat_coarse$peptide, breaks = c(-Inf, 0.33, 0.66, Inf), labels = c(0, 0.5, 1), include.lowest = TRUE)
+dat_coarse$snp_type <- (as.numeric(dat_coarse$snp_type) - 1) / 2
+dat_coarse$effect_size = dat_coarse$effect_size
+dat_coarse = dat_coarse %>% select(snp_ptm_id, patient, peptide, snp_type, snp_ptm, effect_size)
+dat_coarse$snp_ptm <- dat_coarse$snp_ptm / dat_coarse$peptide
+
+dat_coarse
+
+```
+
+```{r lin_reg}
+
+#coarse data linear regression model
+coarse_lm_b <- numeric(snp_ptm_id_count)
+coarse_lm_pval <- numeric(snp_ptm_id_count)
+
+for (idc in 1:snp_ptm_count) {
+  subset_data <- subset(dat_coarse, snp_ptm_id == idc)
+  if(all(subset_data$snp_ptm == 0)) {
+    coarse_lm_b[idc] <- NA
+    coarse_lm_pval[idc] <- NA
+  } else {
+    coarse_lm <- lm(snp_ptm ~ snp_type, data = subset_data)
+    coarse_lm_pval[idc] <- summary(coarse_lm)$coefficients[2,4]
+    coarse_lm_b[idc] <- coef(coarse_lm)[2]
+  }
+}
+
+#coarse data snp-ptm ID vs p-value plot
+sig_col <- ifelse(coarse_lm_pval < 0.05, "red", "black")
+plot(seq_len(snp_ptm_id_count), coarse_lm_pval, main = "Significance of snp-ptm correlation (coarse)",
+     xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col)
+abline(h = 0.05, col = "red4")
+
+```
+
+```{r more_coarse}
+
+plot(dat_coarse$snp_type, dat_coarse$snp_ptm, main = "normalized snp-ptm count for each snp type (coarse)", xlab = "snp_type", ylab = "snp-ptm count")
+
+plot(1:100, coarse_lm_b, main = "beta of each snp-ptm id (coarse data)", xlab = "snp-ptm_id", ylab = "B-value")
+
+plot(effect_size, coarse_lm_b, main = "beta vs effect size (coarse data)", xlab = "effect_size", ylab = "B-value")
+
+```
+
+```{r oldlinreg}
+
+#old data linear regression model
+old_lm_b <- numeric(snp_ptm_id_count)
+old_lm_pval <- numeric(snp_ptm_id_count)
+
+for (idc in 1:snp_ptm_count) {
+  subset_data <- subset(dat_long, snp_ptm_id == idc)
+  if(all(subset_data$snp == 0) | all(subset_data$ptm == 0)) {
+    old_lm_b[idc] <- NA
+    old_lm_pval[idc] <- NA
+  } else {
+    old_lm <- lm(ptm ~ snp, data = subset_data)
+    old_lm_pval[idc] <- summary(old_lm)$coefficients[2,4]
+    old_lm_b[idc] <- coef(old_lm)[2]
+  }
+}
+
+#old data snp-ptm ID vs p-value plot
+sig_col_2 <- ifelse(old_lm_pval < 0.05, "blue", "black")
+plot(seq_len(snp_ptm_id_count), old_lm_pval, main = "Significance of snp-ptm correlation (old)",
+     xlab = "snp-ptm id", ylab = "p-value", pch = 20, col = sig_col_2)
+abline(h = 0.05, col = "blue4")
+
+```
+
+
+```{r old_plots}
+
+plot(1:100, old_lm_b, main = "beta of each snp-ptm id (old data)", xlab = "snp-ptm_id", ylab = "B-value")
+
+
+plot(effect_size, old_lm_b, main = "beta vs effect size (old data)", xlab = "effect_size", ylab = "B-value")
+
+```
