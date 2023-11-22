@@ -2,7 +2,9 @@
 title: "snp_ptm_lab"
 author: "Christopher Seybold"
 date: "2023-11-14"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -143,8 +145,9 @@ dat_coarse = dat
 dat_coarse$snp_type = cut(dat_coarse$snp/dat_coarse$peptide, breaks = c(-Inf, 0.33, 0.66, Inf), labels = c(0, 0.5, 1), include.lowest = TRUE)
 dat_coarse$snp_type <- (as.numeric(dat_coarse$snp_type) - 1) / 2
 dat_coarse$effect_size = dat_coarse$effect_size
+dat_coarse$snp_ptm <- (dat_coarse$snp_ptm + dat_coarse$non_snp_ptm) / dat_coarse$peptide
 dat_coarse = dat_coarse %>% select(snp_ptm_id, patient, peptide, snp_type, snp_ptm, effect_size)
-dat_coarse$snp_ptm <- dat_coarse$snp_ptm / dat_coarse$peptide
+
 
 dat_coarse
 
@@ -158,7 +161,7 @@ coarse_lm_pval <- numeric(snp_ptm_id_count)
 
 for (idc in 1:snp_ptm_id_count) {
   subset_data <- subset(dat_coarse, snp_ptm_id == idc)
-  if(all(subset_data$snp_ptm == 0)) {
+  if(all(subset_data$snp_ptm == 0) | all(subset_data$snp_type == 0)) {
     coarse_lm_b[idc] <- NA
     coarse_lm_pval[idc] <- NA
   } else {
